@@ -1,0 +1,12 @@
+langchain
+langgraph
+langchain-google-genai
+google-genai
+langchain-community
+tavily-python
+chromadb
+streamlit
+python-dotenv
+requests
+beautifulsoup4
+pydantic
