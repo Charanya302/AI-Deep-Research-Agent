@@ -4,24 +4,53 @@ import os
 from dotenv import load_dotenv
 from google import genai
 
-from graph import run_research_agent
 
+# --------------------------------
+# 1. LOAD API KEYS
+# --------------------------------
 
-# Load API keys
 load_dotenv()
 
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-TAVILY_API_KEY = os.getenv("TAVILY_API_KEY")
+
+def get_api_key(key_name):
+    try:
+        return st.secrets[key_name]
+    except Exception:
+        return os.getenv(key_name)
 
 
-# Initialize Gemini client
+GEMINI_API_KEY = get_api_key("GEMINI_API_KEY")
+TAVILY_API_KEY = get_api_key("TAVILY_API_KEY")
+
+
+# Make API keys available to other modules
+if GEMINI_API_KEY:
+    os.environ["GEMINI_API_KEY"] = GEMINI_API_KEY
+
+if TAVILY_API_KEY:
+    os.environ["TAVILY_API_KEY"] = TAVILY_API_KEY
+
+
+# --------------------------------
+# 2. INITIALIZE GEMINI
+# --------------------------------
+
 gemini_client = None
 
 if GEMINI_API_KEY:
-    gemini_client = genai.Client(api_key=GEMINI_API_KEY)
+    gemini_client = genai.Client(
+        api_key=GEMINI_API_KEY
+    )
 
 
-# Page configuration
+# Import graph after loading API keys
+from graph import run_research_agent
+
+
+# --------------------------------
+# 3. PAGE CONFIGURATION
+# --------------------------------
+
 st.set_page_config(
     page_title="AI Deep Research Agent",
     page_icon="🤖",
@@ -29,7 +58,10 @@ st.set_page_config(
 )
 
 
-# Application title
+# --------------------------------
+# 4. APPLICATION TITLE
+# --------------------------------
+
 st.title("🤖 AI Deep Research Agent")
 
 st.write(
@@ -39,8 +71,12 @@ st.write(
 st.divider()
 
 
-# Sidebar
+# --------------------------------
+# 5. SIDEBAR
+# --------------------------------
+
 st.sidebar.title("⚙️ Settings")
+
 st.sidebar.header("API Status")
 
 st.sidebar.write(
@@ -61,7 +97,10 @@ st.sidebar.info(
 )
 
 
-# Research topic input
+# --------------------------------
+# 6. RESEARCH TOPIC INPUT
+# --------------------------------
+
 st.subheader("🔍 Research Topic")
 
 topic = st.text_input(
@@ -70,7 +109,10 @@ topic = st.text_input(
 )
 
 
-# Start Research button
+# --------------------------------
+# 7. START RESEARCH
+# --------------------------------
+
 if st.button("🚀 Start Research", use_container_width=True):
 
     if not topic.strip():
@@ -79,7 +121,9 @@ if st.button("🚀 Start Research", use_container_width=True):
 
     elif not GEMINI_API_KEY or not TAVILY_API_KEY:
 
-        st.error("Please check your API keys in the .env file.")
+        st.error(
+            "Please check your Gemini and Tavily API keys."
+        )
 
     else:
 
@@ -92,11 +136,16 @@ if st.button("🚀 Start Research", use_container_width=True):
                     gemini_client
                 )
 
+
             st.success("Research completed successfully!")
 
             st.divider()
 
-            # Research Plan
+
+            # --------------------------------
+            # RESEARCH PLAN
+            # --------------------------------
+
             st.subheader("📋 Research Plan")
 
             for step in result["plan"]:
@@ -111,9 +160,14 @@ if st.button("🚀 Start Research", use_container_width=True):
 
                     st.write(step)
 
+
             st.divider()
 
-            # Web Search Results
+
+            # --------------------------------
+            # WEB SEARCH RESULTS
+            # --------------------------------
+
             st.subheader("🌐 Web Search Results")
 
             for i, item in enumerate(result["research"], 1):
@@ -129,30 +183,50 @@ if st.button("🚀 Start Research", use_container_width=True):
                     if url:
                         st.markdown(f"[Read More]({url})")
 
+
             st.divider()
 
-            # Research Analysis
+
+            # --------------------------------
+            # RESEARCH ANALYSIS
+            # --------------------------------
+
             st.subheader("📊 Research Analysis")
 
             st.json(result["analysis"])
 
+
             st.divider()
 
-            # Fact Checking
+
+            # --------------------------------
+            # FACT CHECKING
+            # --------------------------------
+
             st.subheader("✅ Fact Checking")
 
             st.markdown(result["fact_check"])
 
+
             st.divider()
 
-            # Final Research Report
+
+            # --------------------------------
+            # FINAL RESEARCH REPORT
+            # --------------------------------
+
             st.subheader("📄 AI Research Report")
 
             st.markdown(result["report"])
 
+
             st.divider()
 
-            # Download Report
+
+            # --------------------------------
+            # DOWNLOAD REPORT
+            # --------------------------------
+
             st.download_button(
                 label="⬇️ Download Research Report",
                 data=result["report"],
@@ -160,6 +234,7 @@ if st.button("🚀 Start Research", use_container_width=True):
                 mime="text/plain",
                 use_container_width=True
             )
+
 
         except Exception as e:
 
@@ -184,6 +259,17 @@ if st.button("🚀 Start Research", use_container_width=True):
                     "Gemini server is busy. Please try again later."
                 )
 
+            elif (
+                "401" in error_message
+                or "Unauthorized" in error_message
+                or "API key not valid" in error_message
+            ):
+
+                st.error(
+                    "Invalid API key. Please check your "
+                    "Gemini and Tavily API keys."
+                )
+
             else:
 
                 st.error(
@@ -191,7 +277,10 @@ if st.button("🚀 Start Research", use_container_width=True):
                 )
 
 
-# Footer
+# --------------------------------
+# 8. FOOTER
+# --------------------------------
+
 st.divider()
 
 st.caption(
