@@ -10,9 +10,9 @@ def generate_with_retry(gemini_client, prompt, max_retries=3):
 
         try:
             response = gemini_client.models.generate_content(
-                model="gemini-3.8-flash",,
-                contents=prompt
-            )
+    model="gemini-3.8-flash",
+    contents=prompt
+)
 
             if response is None:
                 raise ValueError("Gemini returned an empty response.")
