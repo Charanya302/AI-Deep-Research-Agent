@@ -182,7 +182,7 @@ if st.button("🚀 Start Research", use_container_width=True):
             with st.spinner("Testing Gemini API..."):
 
                 gemini_test = gemini_client.models.generate_content(
-                    model="gemini-2.5-flash",
+                    model="gemini-3.8-flash",
                     contents="Reply with only the word OK."
                 )
 
