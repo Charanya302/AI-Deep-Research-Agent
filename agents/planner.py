@@ -1,32 +1,38 @@
 def create_research_plan(topic):
     
-    if not topic.strip():
+    # Check whether the topic is empty
+    if not topic or not topic.strip():
         return []
 
+    # Create a structured research plan
     plan = [
         {
             "step": 1,
-            "task": f"Understand the research topic: {topic}"
+            "task": f"Understand the research topic: {topic.strip()}"
         },
         {
             "step": 2,
-            "task": "Identify important concepts and keywords"
+            "task": "Identify key concepts, keywords and research questions"
         },
         {
             "step": 3,
-            "task": "Search for reliable information"
+            "task": "Search the web for reliable and relevant information"
         },
         {
             "step": 4,
-            "task": "Collect relevant facts and findings"
+            "task": "Collect important facts, evidence and source references"
         },
         {
             "step": 5,
-            "task": "Analyze the collected information"
+            "task": "Analyze the collected information and identify key findings"
         },
         {
             "step": 6,
-            "task": "Prepare a detailed research report"
+            "task": "Verify important facts and check information reliability"
+        },
+        {
+            "step": 7,
+            "task": "Prepare a structured and detailed research report"
         }
     ]
 

@@ -322,7 +322,7 @@ if st.button("🚀 Start Research", use_container_width=True):
 
             st.subheader("📄 AI Research Report")
 
-            report = result.get("report", "")
+            report = result.get("report", "") or "No report generated."
 
             st.markdown(report)
 
@@ -333,6 +333,8 @@ if st.button("🚀 Start Research", use_container_width=True):
             # --------------------------------
             # DOWNLOAD REPORT
             # --------------------------------
+
+            st.subheader("📥 Download Research Report")
 
             st.download_button(
                 label="⬇️ Download Research Report",

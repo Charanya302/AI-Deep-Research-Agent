@@ -11,8 +11,17 @@ TAVILY_API_KEY = os.getenv("TAVILY_API_KEY")
 
 def search_web(query, max_results=5):
 
+    # Validate API key
     if not TAVILY_API_KEY:
         raise ValueError("Tavily API key is missing!")
+
+    # Validate search query
+    if not query or not query.strip():
+        raise ValueError("Search query cannot be empty.")
+
+    # Validate maximum results
+    if not isinstance(max_results, int) or max_results < 1:
+        raise ValueError("max_results must be a positive integer.")
 
     # Initialize Tavily client
     tavily_client = TavilyClient(
@@ -21,28 +30,39 @@ def search_web(query, max_results=5):
 
     # Search the web
     response = tavily_client.search(
-        query=query,
+        query=query.strip(),
         search_depth="basic",
         max_results=max_results
     )
 
-    # Extract results
+    # Extract search results
     results = response.get("results", [])
+
+    if not isinstance(results, list):
+        return []
 
     return results
 
 
 def format_search_results(results):
 
-    research_data = ""
+    if not results:
+        return "No search results available."
+
+    research_data = []
 
     for i, result in enumerate(results, start=1):
 
-        research_data += (
-            f"\nSource {i}\n"
-            f"Title: {result.get('title', '')}\n"
-            f"Content: {result.get('content', '')}\n"
-            f"URL: {result.get('url', '')}\n"
+        if not isinstance(result, dict):
+            continue
+
+        research_data.append(
+            f"""
+Source {i}
+Title: {result.get('title', 'Untitled Source')}
+Content: {result.get('content', '')}
+URL: {result.get('url', '')}
+"""
         )
 
-    return research_data
+    return "\n".join(research_data)
