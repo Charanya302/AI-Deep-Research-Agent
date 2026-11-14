@@ -1,8 +1,15 @@
 import os
 import streamlit as st
+
 from dotenv import load_dotenv
-from google import genai
 from tavily import TavilyClient
+from langchain_google_genai import ChatGoogleGenerativeAI
+
+# RAG imports
+from rag.document_loader import load_pdf_documents
+from rag.text_splitter import split_documents
+from rag.vector_store import create_vector_store
+
 
 # --------------------------------
 # 1. LOAD API KEYS
@@ -32,17 +39,23 @@ if TAVILY_API_KEY:
 
 
 # --------------------------------
-# 2. INITIALIZE CLIENTS
+# 2. INITIALIZE GEMINI AND TAVILY
 # --------------------------------
 
 gemini_client = None
 tavily_client = None
 
 if GEMINI_API_KEY:
-    gemini_client = genai.Client(api_key=GEMINI_API_KEY)
+    gemini_client = ChatGoogleGenerativeAI(
+        model="gemini-3.8-flash",
+        google_api_key=GEMINI_API_KEY,
+        temperature=0
+    )
 
 if TAVILY_API_KEY:
-    tavily_client = TavilyClient(api_key=TAVILY_API_KEY)
+    tavily_client = TavilyClient(
+        api_key=TAVILY_API_KEY
+    )
 
 
 # Import graph after loading API keys
@@ -68,7 +81,8 @@ st.set_page_config(
 st.title("🤖 AI Deep Research Agent")
 
 st.write(
-    "Search the web and generate AI-powered research reports."
+    "Search the web and generate AI-powered research reports "
+    "using Generative AI and RAG."
 )
 
 st.divider()
@@ -95,13 +109,37 @@ st.sidebar.write(
 st.sidebar.divider()
 
 st.sidebar.info(
-    "This application uses Gemini AI and Tavily "
-    "to research and generate reports."
+    "This application uses Streamlit, LangChain, "
+    "Gemini API, Tavily API, LangGraph and ChromaDB."
 )
 
 
 # --------------------------------
-# 6. RESEARCH TOPIC INPUT
+# 6. PDF DOCUMENT UPLOAD
+# --------------------------------
+
+st.subheader("📄 Upload Research Documents")
+
+uploaded_file = st.file_uploader(
+    "Upload a PDF document for RAG",
+    type=["pdf"]
+)
+
+if uploaded_file is not None:
+    st.success(
+        f"Selected PDF: {uploaded_file.name}"
+    )
+else:
+    st.info(
+        "You can upload a PDF to include its information "
+        "in the research report."
+    )
+
+st.divider()
+
+
+# --------------------------------
+# 7. RESEARCH TOPIC INPUT
 # --------------------------------
 
 st.subheader("🔍 Research Topic")
@@ -113,40 +151,47 @@ topic = st.text_input(
 
 
 # --------------------------------
-# 7. API ERROR DISPLAY
+# 8. API ERROR DISPLAY
 # --------------------------------
 
 def show_api_error(service, error):
 
     error_message = str(error)
+    error_upper = error_message.upper()
 
     st.error(f"{service} API Error")
 
-    if "401" in error_message or "UNAUTHENTICATED" in error_message:
+    if "401" in error_upper or "UNAUTHENTICATED" in error_upper:
+
         st.error(
             f"{service} API authentication failed. "
-            "Please check the API key in Streamlit Secrets."
+            "Please check the API key."
         )
 
-    elif "403" in error_message or "PERMISSION_DENIED" in error_message:
+    elif "403" in error_upper or "PERMISSION_DENIED" in error_upper:
+
         st.error(
             f"{service} API access denied. "
             "Please check API permissions."
         )
 
-    elif "404" in error_message or "NOT_FOUND" in error_message:
+    elif "404" in error_upper or "NOT_FOUND" in error_upper:
+
         st.error(
             f"{service} model or endpoint not found."
         )
 
-    elif "429" in error_message or "RESOURCE_EXHAUSTED" in error_message:
+    elif "429" in error_upper or "RESOURCE_EXHAUSTED" in error_upper:
+
         st.warning(
             f"{service} API quota exceeded. Please try again later."
         )
 
-    elif "503" in error_message or "UNAVAILABLE" in error_message:
+    elif "503" in error_upper or "UNAVAILABLE" in error_upper:
+
         st.warning(
-            f"{service} server is temporarily unavailable."
+            f"{service} server is temporarily unavailable. "
+            "Please try again later."
         )
 
     else:
@@ -154,7 +199,7 @@ def show_api_error(service, error):
 
 
 # --------------------------------
-# 8. START RESEARCH
+# 9. START RESEARCH
 # --------------------------------
 
 if st.button("🚀 Start Research", use_container_width=True):
@@ -174,54 +219,65 @@ if st.button("🚀 Start Research", use_container_width=True):
     else:
 
         # --------------------------------
-        # TEST GEMINI CONNECTION
+        # PROCESS UPLOADED PDF
         # --------------------------------
 
-        try:
+        if uploaded_file is not None:
 
-            with st.spinner("Testing Gemini API..."):
+            try:
 
-                gemini_test = gemini_client.models.generate_content(
-                    model="gemini-3.8-flash",
-                    contents="Reply with only the word OK."
-                )
+                with st.spinner("Processing uploaded PDF..."):
 
-            if not gemini_test or not gemini_test.text:
-                raise ValueError("Gemini returned an empty response.")
+                    os.makedirs("data", exist_ok=True)
 
-            st.success("Gemini API working successfully!")
+                    pdf_path = os.path.join(
+                        "data",
+                        "uploaded_research.pdf"
+                    )
 
-        except Exception as e:
+                    # Save uploaded PDF
 
-            show_api_error("Gemini", e)
-            st.stop()
+                    with open(pdf_path, "wb") as file:
 
+                        file.write(
+                            uploaded_file.getbuffer()
+                        )
 
-        # --------------------------------
-        # TEST TAVILY CONNECTION
-        # --------------------------------
+                    # Load PDF
 
-        try:
+                    documents = load_pdf_documents(pdf_path)
 
-            with st.spinner("Testing Tavily API..."):
+                    st.success("PDF loaded successfully!")
 
-                tavily_test = tavily_client.search(
-                    query=topic,
-                    search_depth="basic",
-                    max_results=1
-                )
+                    # Split PDF into chunks
 
-            st.success("Tavily API working successfully!")
+                    chunks = split_documents(documents)
 
-        except Exception as e:
+                    st.success(
+                        f"PDF split into {len(chunks)} text chunks!"
+                    )
 
-            show_api_error("Tavily", e)
-            st.stop()
+                    # Create vector store
 
+                    create_vector_store(chunks)
+
+                    st.success(
+                        "PDF embeddings stored in ChromaDB successfully!"
+                    )
+
+            except Exception as e:
+
+                st.error("PDF processing failed.")
+
+                st.exception(e)
+
+                st.stop()
 
         # --------------------------------
         # RUN RESEARCH AGENT
         # --------------------------------
+        # Separate Gemini and Tavily test calls
+        # have been removed to reduce unnecessary API requests.
 
         try:
 
@@ -236,7 +292,6 @@ if st.button("🚀 Start Research", use_container_width=True):
 
             st.divider()
 
-
             # --------------------------------
             # RESEARCH PLAN
             # --------------------------------
@@ -248,16 +303,15 @@ if st.button("🚀 Start Research", use_container_width=True):
                 if isinstance(step, dict):
 
                     st.write(
-                        f"Step {step['step']}: {step['task']}"
+                        f"Step {step.get('step', '')}: "
+                        f"{step.get('task', '')}"
                     )
 
                 else:
 
                     st.write(step)
 
-
             st.divider()
-
 
             # --------------------------------
             # WEB SEARCH RESULTS
@@ -275,20 +329,25 @@ if st.button("🚀 Start Research", use_container_width=True):
                         f"{i}. {item.get('title', 'Untitled Source')}"
                     ):
 
-                        st.write(item.get("content", ""))
+                        st.write(
+                            item.get("content", "")
+                        )
 
                         url = item.get("url", "")
 
                         if url:
-                            st.markdown(f"[Read More]({url})")
+
+                            st.markdown(
+                                f"[Read More]({url})"
+                            )
 
             else:
 
-                st.warning("No web search results found.")
-
+                st.warning(
+                    "No web search results found."
+                )
 
             st.divider()
-
 
             # --------------------------------
             # RESEARCH ANALYSIS
@@ -296,11 +355,35 @@ if st.button("🚀 Start Research", use_container_width=True):
 
             st.subheader("📊 Research Analysis")
 
-            st.json(result.get("analysis", {}))
-
+            st.json(
+                result.get("analysis", {})
+            )
 
             st.divider()
 
+            # --------------------------------
+            # RAG RETRIEVED INFORMATION
+            # --------------------------------
+
+            st.subheader("📚 RAG Retrieved Information")
+
+            rag_context = result.get("rag_context", "")
+
+            if rag_context:
+
+                st.success(
+                    "Relevant PDF information retrieved successfully!"
+                )
+
+                st.write(rag_context)
+
+            else:
+
+                st.info(
+                    "No relevant PDF information retrieved."
+                )
+
+            st.divider()
 
             # --------------------------------
             # FACT CHECKING
@@ -308,13 +391,14 @@ if st.button("🚀 Start Research", use_container_width=True):
 
             st.subheader("✅ Fact Checking")
 
-            fact_check = result.get("fact_check", "")
+            fact_check = result.get(
+                "fact_check",
+                "Fact checking unavailable."
+            )
 
             st.markdown(fact_check)
 
-
             st.divider()
-
 
             # --------------------------------
             # FINAL RESEARCH REPORT
@@ -322,13 +406,14 @@ if st.button("🚀 Start Research", use_container_width=True):
 
             st.subheader("📄 AI Research Report")
 
-            report = result.get("report", "") or "No report generated."
+            report = result.get(
+                "report",
+                ""
+            ) or "No report generated."
 
             st.markdown(report)
 
-
             st.divider()
-
 
             # --------------------------------
             # DOWNLOAD REPORT
@@ -344,8 +429,9 @@ if st.button("🚀 Start Research", use_container_width=True):
                 use_container_width=True
             )
 
-
         except Exception as e:
+
+            show_api_error("Research", e)
 
             st.error("Research process failed.")
 
@@ -353,12 +439,13 @@ if st.button("🚀 Start Research", use_container_width=True):
 
 
 # --------------------------------
-# 9. FOOTER
+# 10. FOOTER
 # --------------------------------
 
 st.divider()
 
 st.caption(
     "AI Deep Research Agent | Built using Python, "
-    "Streamlit, Gemini API and Tavily API"
+    "Streamlit, LangChain, LangGraph, Gemini API, "
+    "Tavily API and ChromaDB"
 )

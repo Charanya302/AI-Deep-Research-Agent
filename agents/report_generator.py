@@ -1,7 +1,12 @@
 from utils.helpers import generate_with_retry
 
 
-def generate_research_outputs(topic, research_data, gemini_client):
+def generate_research_outputs(
+    topic,
+    research_data,
+    gemini_client,
+    rag_context=""
+):
 
     # Check research topic
     if not topic or not topic.strip():
@@ -11,10 +16,10 @@ def generate_research_outputs(topic, research_data, gemini_client):
         }
 
     # Check research data
-    if not research_data:
+    if not research_data and not rag_context:
         return {
             "fact_check": "No research data available.",
-            "report": "No research data available."
+            "report": "No web or PDF research data available."
         }
 
     # Check Gemini connection
@@ -24,10 +29,10 @@ def generate_research_outputs(topic, research_data, gemini_client):
             "report": "Gemini client is not connected."
         }
 
-    # Prepare research information
+    # Prepare web research information
     research_sections = []
 
-    for index, item in enumerate(research_data, 1):
+    for index, item in enumerate(research_data or [], 1):
 
         if not isinstance(item, dict):
             continue
@@ -45,13 +50,13 @@ def generate_research_outputs(topic, research_data, gemini_client):
             """
         )
 
-    if not research_sections:
-        return {
-            "fact_check": "No valid research sources found.",
-            "report": "Unable to generate report."
-        }
-
     research_text = "\n\n".join(research_sections)
+
+    # Prepare PDF RAG information
+    if rag_context:
+        pdf_information = rag_context
+    else:
+        pdf_information = "No PDF documents provided."
 
     # Prepare Gemini prompt
     prompt = f"""
@@ -59,8 +64,11 @@ def generate_research_outputs(topic, research_data, gemini_client):
 
     Research Topic: {topic.strip()}
 
-    Research Information:
+    WEB RESEARCH INFORMATION:
     {research_text}
+
+    PDF RETRIEVED INFORMATION:
+    {pdf_information}
 
     Complete BOTH tasks in one response.
 
@@ -94,8 +102,8 @@ def generate_research_outputs(topic, research_data, gemini_client):
 
     Instructions:
     - Use simple professional language.
-    - Include relevant source URLs.
-    - Use the provided research information.
+    - Include relevant web source URLs.
+    - Use both web research and PDF information.
     - Do not invent facts or references.
     - Clearly distinguish verified information
       from uncertain claims.

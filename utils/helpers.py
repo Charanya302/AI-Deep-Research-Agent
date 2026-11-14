@@ -19,15 +19,43 @@ def generate_with_retry(gemini_client, prompt, max_retries=3):
 
         try:
 
-            response = gemini_client.models.generate_content(
-                model="gemini-3.8-flash",
-                contents=prompt
-            )
+            # Generate response using LangChain Gemini
+            response = gemini_client.invoke(prompt)
 
-            if response is None or not response.text:
+            if response is None or not response.content:
                 raise ValueError("Gemini returned an empty response.")
 
-            return response.text
+            # Convert Gemini response into normal string
+            content = response.content
+
+            if isinstance(content, str):
+                answer = content
+
+            elif isinstance(content, list):
+
+                text_parts = []
+
+                for item in content:
+
+                    if isinstance(item, str):
+                        text_parts.append(item)
+
+                    elif isinstance(item, dict):
+
+                        text = item.get("text", "")
+
+                        if text:
+                            text_parts.append(text)
+
+                answer = "\n".join(text_parts)
+
+            else:
+                answer = str(content)
+
+            if not answer.strip():
+                raise ValueError("Gemini returned no readable text.")
+
+            return answer.strip()
 
         except Exception as e:
 
@@ -35,32 +63,26 @@ def generate_with_retry(gemini_client, prompt, max_retries=3):
 
             print("Gemini API Error:", str(e))
 
-            # Authentication error
             if "401" in error_message or "UNAUTHENTICATED" in error_message:
                 raise Exception(
-                    "Gemini API authentication failed. "
-                    "Please check your API key."
+                    "Gemini API authentication failed. Check your API key."
                 ) from e
 
-            # Permission error
             elif "403" in error_message or "PERMISSION_DENIED" in error_message:
                 raise Exception(
                     "Gemini API access denied. Check API permissions."
                 ) from e
 
-            # Model error
             elif "404" in error_message or "NOT_FOUND" in error_message:
                 raise Exception(
                     "Gemini model not found. Check the model name."
                 ) from e
 
-            # Quota error
             elif "429" in error_message or "RESOURCE_EXHAUSTED" in error_message:
                 raise Exception(
                     "Gemini API quota exceeded. Please try again later."
                 ) from e
 
-            # Temporary server error
             elif (
                 "503" in error_message
                 or "UNAVAILABLE" in error_message
@@ -79,9 +101,9 @@ def generate_with_retry(gemini_client, prompt, max_retries=3):
                     time.sleep(wait_time)
 
                 else:
+
                     raise Exception(
-                        "Gemini server is temporarily unavailable. "
-                        "Please try again later."
+                        "Gemini server is temporarily unavailable."
                     ) from e
 
             else:
